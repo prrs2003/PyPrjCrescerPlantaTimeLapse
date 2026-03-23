@@ -1,3 +1,5 @@
+### Versão 0.1.1
+
 import os
 import cv2
 import numpy as np
