@@ -1,118 +1,146 @@
-### Versão 0.1.1
-
-import os
 import cv2
 import numpy as np
-from tqdm import tqdm
+import os
+from glob import glob
 
+# ==============================
+# CONFIGURAÇÕES
+# ==============================
+MIN_AREA = 100        # mínimo para considerar folha
+MAX_AREA = 10000
+DIST_THRESHOLD = 20   # para associar pontos entre frames
 
-class BioTrackerPure:
-    def __init__(self):
-        # Range HSV muito mais restrito para o "Verde Clorofila"
-        # Saturação mínima subiu para 80 (ignora tons pastéis/beges)
-        # Valor (brilho) mínimo subiu para 50 (ignora sombras escuras)
-        self.lower_green = np.array([35, 80, 50])
-        self.upper_green = np.array([85, 255, 255])
+# ==============================
+# PEDIR CAMINHO
+# ==============================
+folder = input("Digite o caminho da pasta com as imagens: ").strip()
 
-    def get_vegetation_mask(self, img):
-        """Aplica múltiplos filtros para garantir que APENAS vegetação seja detectada."""
-        # 1. Suavização para remover ruído eletrônico do sensor
-        work_img = cv2.GaussianBlur(img, (5, 5), 0)
+image_paths = sorted(glob(os.path.join(folder, "*.jpg")))
 
-        # 2. Separação de canais (Float para cálculos precisos)
-        b, g, r = cv2.split(work_img.astype(np.float32))
+if len(image_paths) < 2:
+    print("Poucas imagens.")
+    exit()
 
-        # 3. Cálculo do ExG (Excess Green Index)
-        # Fórmula: 2*G - R - B. Folhas dão valores altos, madeira/bambu dão valores baixos.
-        exg = 2 * g - r - b
-        exg_mask = np.where(exg > 50, 255, 0).astype(np.uint8)
+# ==============================
+# FUNÇÃO: FILTRAR FOLHAS
+# ==============================
+def get_leaf_mask(img):
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-        # 4. Filtro de Razão (O verde DEVE ser dominante)
-        # Se G não for pelo menos 1.2x maior que R, provavelmente é amarelado (bambu)
-        ratio_mask = np.where((g > r * 1.2) & (g > b * 1.1), 255, 0).astype(np.uint8)
+    # Verde vivo (folha)
+    lower_green = np.array([35, 80, 40])
+    upper_green = np.array([85, 255, 255])
 
-        # 5. Filtro HSV Estrito
-        hsv = cv2.cvtColor(work_img, cv2.COLOR_BGR2HSV)
-        hsv_mask = cv2.inRange(hsv, self.lower_green, self.upper_green)
+    mask = cv2.inRange(hsv, lower_green, upper_green)
 
-        # 6. COMBINAÇÃO DAS TRAVAS (Só é planta se passar em TODOS os testes)
-        # ExG + Razão + HSV
-        combined = cv2.bitwise_and(exg_mask, ratio_mask)
-        combined = cv2.bitwise_and(combined, hsv_mask)
+    # Limpeza
+    kernel = np.ones((5,5), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
-        # 7. Limpeza Morfológica (Fecha buracos nas folhas e remove pontinhos)
-        kernel = np.ones((5, 5), np.uint8)
-        mask = cv2.morphologyEx(combined, cv2.MORPH_OPEN, kernel)  # Remove sujeira
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)  # Une partes da folha
+    return mask
 
-        # 8. Filtro de Área Mínima (Remove manchas pequenas que não são plantas)
-        final_mask = np.zeros_like(mask)
-        cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for c in cnts:
-            if cv2.contourArea(c) > 400:  # Aumentado para ignorar qualquer resíduo
-                cv2.drawContours(final_mask, [c], -1, 255, -1)
+# ==============================
+# FUNÇÃO: EXTRAIR FOLHAS
+# ==============================
+def extract_leaves(mask):
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    leaves = []
 
-        return final_mask
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if MIN_AREA < area < MAX_AREA:
 
-    def get_temporal_color(self, idx, total):
-        """Azul (antigo) -> Vermelho (novo)."""
-        hue = int((idx / total) * 160)
-        hsv = np.uint8([[[hue, 255, 255]]])
-        return tuple(map(int, cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)[0][0]))
+            M = cv2.moments(cnt)
+            if M["m00"] == 0:
+                continue
 
-    def process(self, folder_path, alpha=0.65):
-        files = sorted([f for f in os.listdir(folder_path) if f.lower().endswith(('.jpg', '.jpeg'))],
-                       key=lambda x: os.path.getmtime(os.path.join(folder_path, x)))
-        if len(files) < 2: return
+            cx = int(M["m10"] / M["m00"])
+            cy = int(M["m01"] / M["m00"])
 
-        # Imagem base (última do timelapse)
-        last_img = cv2.imread(os.path.join(folder_path, files[-1]))
-        h, w = last_img.shape[:2]
+            # ponto mais distante (ponta)
+            pts = cnt.reshape(-1, 2)
+            dists = np.linalg.norm(pts - np.array([cx, cy]), axis=1)
+            tip = pts[np.argmax(dists)]
 
-        # Identificar Indivíduos (Plantas separadas)
-        final_mask = self.get_vegetation_mask(last_img)
-        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(final_mask, 8)
+            leaves.append({
+                "center": np.array([cx, cy], dtype=np.float32),
+                "tip": tip.astype(np.float32)
+            })
 
-        plants = []
-        for i in range(1, num_labels):
-            if stats[i, cv2.CC_STAT_AREA] > 500:
-                plants.append({'id': len(plants) + 1, 'center': centroids[i]})
+    return leaves
 
-        print(f"Detectadas {len(plants)} plantas (Vegetação Pura).")
+# ==============================
+# INICIALIZAÇÃO
+# ==============================
+first_img = cv2.imread(image_paths[0])
+prev_img = first_img.copy()
 
-        overlay = np.zeros_like(last_img)
-        for frame_idx, filename in enumerate(tqdm(files, desc="Filtrando Clorofila")):
-            img = cv2.imread(os.path.join(folder_path, filename))
-            if img is None: continue
+mask = get_leaf_mask(prev_img)
+leaves = extract_leaves(mask)
 
-            mask = self.get_vegetation_mask(img)
-            cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            color = self.get_temporal_color(frame_idx, len(files))
+# pontos iniciais (centros + pontas)
+points = []
+for leaf in leaves:
+    points.append(leaf["center"])
+    points.append(leaf["tip"])
 
-            for c in cnts:
-                # Associa ao indivíduo mais próximo para desenhar a borda
-                M = cv2.moments(c);
-                cx = int(M['m10'] / M['m00']) if M['m00'] != 0 else 0
-                cy = int(M['m01'] / M['m00']) if M['m00'] != 0 else 0
+points = np.array(points, dtype=np.float32).reshape(-1, 1, 2)
 
-                for p in plants:
-                    if np.sqrt((cx - p['center'][0]) ** 2 + (cy - p['center'][1]) ** 2) < 250:
-                        cv2.drawContours(overlay, [c], -1, color, 2, cv2.LINE_AA)
-                        break
+# armazenar trilhas
+tracks = [[p[0]] for p in points]
 
-        # Renderização Final
-        result = cv2.addWeighted(last_img, 1.0, overlay, alpha, 0)
-        for p in plants:
-            pos = (int(p['center'][0]), int(p['center'][1]))
-            cv2.putText(result, f"PLANTA #{p['id']}", pos, cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 0, 0), 3, cv2.LINE_AA)
-            cv2.putText(result, f"PLANTA #{p['id']}", pos, cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 1,
-                        cv2.LINE_AA)
+# ==============================
+# RASTREAMENTO
+# ==============================
+for path in image_paths[1:]:
+    img = cv2.imread(path)
 
-        out_path = os.path.join(folder_path, "RESULTADO_VEGETACAO_ESTRITO.jpg")
-        cv2.imwrite(out_path, result)
-        print(f"\nMapa de vegetação gerado com sucesso!")
+    prev_gray = cv2.cvtColor(prev_img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
+    new_points, status, _ = cv2.calcOpticalFlowPyrLK(
+        prev_gray, gray, points, None,
+        winSize=(15,15),
+        maxLevel=2
+    )
 
-if __name__ == "__main__":
-    path = input("Caminho da pasta: ")
-    BioTrackerPure().process(path)
+    good_new = new_points[status == 1]
+    good_old = points[status == 1]
+
+    new_tracks = []
+    idx = 0
+
+    for i, (new, old) in enumerate(zip(good_new, good_old)):
+        tracks[i].append(new)
+        new_tracks.append(tracks[i])
+
+    tracks = new_tracks
+    points = good_new.reshape(-1, 1, 2)
+
+    prev_img = img.copy()
+
+# ==============================
+# DESENHAR RESULTADO
+# ==============================
+output = first_img.copy()
+
+for track in tracks:
+    for i in range(1, len(track)):
+        p1 = tuple(track[i-1].astype(int))
+        p2 = tuple(track[i].astype(int))
+
+        cv2.line(output, p1, p2, (0, 0, 255), 2)
+
+# ==============================
+# SALVAR RESULTADO
+# ==============================
+output_path = os.path.join(folder, "resultado_crescimento.jpg")
+cv2.imwrite(output_path, output)
+
+print("Imagem gerada em:", output_path)
+
+# opcional visualizar
+cv2.imshow("Resultado", output)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
