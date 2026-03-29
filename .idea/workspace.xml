@@ -4,8 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a3d63986-aa6e-45df-9747-add3f92cf24a" name="Changes" comment="PyPrjCrescerPlantaTimeLapse Versão 0.1.1">
+    <list default="true" id="a3d63986-aa6e-45df-9747-add3f92cf24a" name="Changes" comment="PyPrjCrescerPlantaTimeLapse Versão 0.2.0">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -15,16 +16,16 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "prrs2003"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;prrs2003&quot;
   }
-}]]></component>
+}</component>
   <component name="GithubPullRequestsUISettings"><![CDATA[{
   "selectedUrlAndAccountId": {
-    "url": "https://github.com/prrs2003/PyPrjCrescerPlantaTimeLapse",
-    "accountId": "0a8aeac3-d7df-45eb-adfc-fe861663d25e"
+    "url": "https://github.com/prrs2003/PyPrjCrescerPlantaTimeLapse.git",
+    "accountId": "003b463d-3867-492c-afeb-eead83791bc4"
   }
 }]]></component>
   <component name="ProjectColorInfo">{
@@ -47,7 +48,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-f69e5c277ee4-cbfc7b97e6b2-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-252.27397.106" />
+        <option value="bundled-python-sdk-8753aad8314d-d902c0275401-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-252.25557.178" />
       </set>
     </attachedChunks>
   </component>
@@ -91,12 +92,21 @@
       <option name="project" value="LOCAL" />
       <updated>1774300263858</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="PyPrjCrescerPlantaTimeLapse Versão 0.2.0">
+      <option name="closed" value="true" />
+      <created>1774821061369</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1774821061369</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="PyPrjCrescerPlantaTimeLapse Versão 0.1.0" />
     <MESSAGE value="PyPrjCrescerPlantaTimeLapse Versão 0.1.1" />
-    <option name="LAST_COMMIT_MESSAGE" value="PyPrjCrescerPlantaTimeLapse Versão 0.1.1" />
+    <MESSAGE value="PyPrjCrescerPlantaTimeLapse Versão 0.2.0" />
+    <option name="LAST_COMMIT_MESSAGE" value="PyPrjCrescerPlantaTimeLapse Versão 0.2.0" />
   </component>
 </project>
