@@ -6,7 +6,7 @@ from glob import glob
 # ==============================
 # CONFIGURAÇÕES
 # ==============================
-MIN_AREA = 150
+MIN_AREA = 70
 MAX_AREA = 15000
 RESIZE = (640, 480)
 
