@@ -4,7 +4,7 @@ import os
 from glob import glob
 
 # ==============================
-# CONFIGURAÇÕES
+# CONFIGURAÇÕES - Importante para separar folhas de outros objetos verdes
 # ==============================
 MIN_AREA = 40
 MAX_AREA = 300
